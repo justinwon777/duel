@@ -25,7 +25,6 @@ VEL = 5
 LASER_VEL = 7
 MAX_LASERS = 10
 MIDLINE = pg.Rect(WIDTH // 2 - 5, 0, 10, HEIGHT)
-direction = UP
 
 PLAYER_HIT = pg.USEREVENT + 1
 ENEMY_HIT = pg.USEREVENT + 2
@@ -34,6 +33,7 @@ paused = False
 
 
 def main_menu():
+    timer_sec = 0
     click = False
     running = True
     while running:
@@ -73,7 +73,12 @@ def main_menu():
 
 
 def duel_1():
+    ai_move = pg.USEREVENT + 3
+    ai_shoot = pg.USEREVENT + 4
+    pg.time.set_timer(ai_move, 500)
+    pg.time.set_timer(ai_shoot, 400)
     ai = True
+    direction = UP
     global paused
     player = Spaceship(os.path.join('Assets', '6b.png'))
     player.image = pg.transform.rotate(player.image, 270)
@@ -81,16 +86,17 @@ def duel_1():
     enemy = Spaceship(os.path.join('Assets', '6.png'))
     enemy.image = pg.transform.rotate(enemy.image, 90)
     enemy.rect.x, enemy.rect.y = (WIDTH - 100 - enemy.rect.width, HEIGHT // 2 - player.rect.width // 2)
+    countdown(player, enemy)
     running = True
     while running:
         clock.tick(FPS)
         screen.fill((192, 192, 192))
-        pg.draw.rect(screen, (0, 0, 0), MIDLINE)
+        pg.draw.rect(screen, BLACK, MIDLINE)
         screen.blit(player.image, (player.rect.x, player.rect.y))
         screen.blit(enemy.image, (enemy.rect.x, enemy.rect.y))
         keys_pressed = pg.key.get_pressed()
         move_player(player, keys_pressed)
-        move_enemy(enemy, keys_pressed, ai)
+        move_enemy_ai(enemy, direction)
         move_lasers(player.shots, enemy.shots, player, enemy)
         player_health = HEALTH_FONT.render("Health: " + str(player.health), 1, BLACK)
         enemy_health = HEALTH_FONT.render("Health: " + str(enemy.health), 1, BLACK)
@@ -124,6 +130,15 @@ def duel_1():
                 enemy.health -= 1
             if event.type == PLAYER_HIT:
                 player.health -= 1
+            if event.type == ai_move:
+                directions = [UP, DOWN, LEFT, RIGHT]
+                directions.remove(direction)
+                new_dir = random.randint(0, 2)
+                direction = directions[new_dir]
+            if event.type == ai_shoot:
+                if len(enemy.shots) < MAX_LASERS:
+                    laser = pg.Rect(enemy.rect.midleft[0] - 10, enemy.rect.midleft[1], 10, 4)
+                    enemy.shots.append(laser)
         pg.display.update()
 
 
@@ -136,16 +151,17 @@ def duel_2():
     enemy = Spaceship(os.path.join('Assets', '6.png'))
     enemy.image = pg.transform.rotate(enemy.image, 90)
     enemy.rect.x, enemy.rect.y = (WIDTH - 100 - enemy.rect.width, HEIGHT // 2 - player.rect.width // 2)
+    countdown(player, enemy)
     running = True
     while running:
         clock.tick(FPS)
         screen.fill((192, 192, 192))
-        pg.draw.rect(screen, (0, 0, 0), MIDLINE)
+        pg.draw.rect(screen, BLACK, MIDLINE)
         screen.blit(player.image, (player.rect.x, player.rect.y))
         screen.blit(enemy.image, (enemy.rect.x, enemy.rect.y))
         keys_pressed = pg.key.get_pressed()
         move_player(player, keys_pressed)
-        move_enemy(enemy, keys_pressed, ai)
+        move_enemy(enemy, keys_pressed)
         move_lasers(player.shots, enemy.shots, player, enemy)
         player_health = HEALTH_FONT.render("Health: " + str(player.health), 1, BLACK)
         enemy_health = HEALTH_FONT.render("Health: " + str(enemy.health), 1, BLACK)
@@ -169,7 +185,7 @@ def duel_2():
                 if event.key == pg.K_SPACE and len(player.shots) < MAX_LASERS:
                     laser = pg.Rect(player.rect.midright[0], player.rect.midright[1], 10, 4)
                     player.shots.append(laser)
-                if event.key == pg.K_RCTRL and len(enemy.shots) < MAX_LASERS:
+                if event.key == pg.K_RALT and len(enemy.shots) < MAX_LASERS:
                     laser = pg.Rect(enemy.rect.midleft[0], enemy.rect.midleft[1], 10, 4)
                     enemy.shots.append(laser)
                 if event.key == pg.K_ESCAPE:
@@ -182,7 +198,7 @@ def duel_2():
                 enemy.health -= 1
             if event.type == PLAYER_HIT:
                 player.health -= 1
-                
+
         pg.display.update()
 
 
@@ -225,7 +241,6 @@ def game_over(text, ai):
                 if event.button == 1:
                     click = True
         pg.display.update()
-
 
 
 def pause():
@@ -285,18 +300,26 @@ def move_player(player, keys):
         player.rect.y += VEL
 
 
-def move_enemy(enemy, keys, ai):
-    if ai:
-        pass
-    else:
-        if keys[pg.K_LEFT] and enemy.rect.x - VEL > MIDLINE.x + MIDLINE.width:
-            enemy.rect.x -= VEL
-        if keys[pg.K_RIGHT] and enemy.rect.x + VEL + enemy.rect.height < WIDTH:
-            enemy.rect.x += VEL
-        if keys[pg.K_UP] and enemy.rect.y - VEL > 0:
-            enemy.rect.y -= VEL
-        if keys[pg.K_DOWN] and enemy.rect.y + VEL + enemy.rect.width < HEIGHT:
-            enemy.rect.y += VEL
+def move_enemy(enemy, keys):
+    if keys[pg.K_LEFT] and enemy.rect.x - VEL > MIDLINE.x + MIDLINE.width:
+        enemy.rect.x -= VEL
+    if keys[pg.K_RIGHT] and enemy.rect.x + VEL + enemy.rect.height < WIDTH:
+        enemy.rect.x += VEL
+    if keys[pg.K_UP] and enemy.rect.y - VEL > 0:
+        enemy.rect.y -= VEL
+    if keys[pg.K_DOWN] and enemy.rect.y + VEL + enemy.rect.width < HEIGHT:
+        enemy.rect.y += VEL
+
+
+def move_enemy_ai(enemy, dir):
+    if dir == LEFT and enemy.rect.x - VEL > MIDLINE.x + MIDLINE.width:
+        enemy.rect.x -= VEL
+    if dir == RIGHT and enemy.rect.x + VEL + enemy.rect.height < WIDTH:
+        enemy.rect.x += VEL
+    if dir == UP and enemy.rect.y - VEL > 0:
+        enemy.rect.y -= VEL
+    if dir == DOWN and enemy.rect.y + VEL + enemy.rect.width < HEIGHT:
+        enemy.rect.y += VEL
 
 
 def move_lasers(player_shots, enemy_shots, player, enemy):
@@ -314,6 +337,35 @@ def move_lasers(player_shots, enemy_shots, player, enemy):
             enemy_shots.remove(laser)
         elif laser.x + laser.width < 0:
             enemy_shots.remove(laser)
+
+
+def countdown(player, enemy):
+    timer = pg.USEREVENT + 5
+    pg.time.set_timer(timer, 1000)
+    time = 3
+    timer_screen = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
+    timer_screen.fill((0, 0, 0, 150))
+    timer_text = MENU_FONT.render(str(time), 1, WHITE)
+    timer_rect = timer_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    running = True
+    while running:
+        clock.tick(FPS)
+        screen.fill((192, 192, 192))
+        pg.draw.rect(screen, BLACK, MIDLINE)
+        screen.blit(player.image, (player.rect.x, player.rect.y))
+        screen.blit(enemy.image, (enemy.rect.x, enemy.rect.y))
+        timer_text = MENU_FONT.render(str(time), 1, WHITE)
+        screen.blit(timer_screen, (0, 0))
+        screen.blit(timer_text, timer_rect)
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+                sys.exit()
+            if event.type == timer:
+                time -= 1
+        if time == 0:
+            running = False
+        pg.display.update()
 
 
 if __name__ == "__main__":
