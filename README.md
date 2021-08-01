@@ -1,5 +1,5 @@
 # Duel
-A simple 2D space shooter. Play against an AI enemy or another human.
+A simple 2D space shooter created with PyGame. Play against an AI enemy or another human.
 
 ![](images/mainmenu.jpg)
 
